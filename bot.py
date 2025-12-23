@@ -269,22 +269,37 @@ class ApprovalView(discord.ui.View):
         data["approved"].append(message_entry)
         save_messages(data)
 
-        # Post to the server's messages channel
-        server_config = servers.get(str(self.guild_id), {})
-        messages_channel_id = server_config.get("messages_channel_id")
-        messages_channel = bot.get_channel(messages_channel_id) if messages_channel_id else None
+        # Post to ALL servers' messages channels
+        embed = discord.Embed(
+            title=f"💌 Sevgili {message_entry['recipient']},",
+            description=message_entry["content"],
+            color=discord.Color.pink(),
+        )
+        embed.set_footer(text="Gönderilmemiş Mesajlar 💕")
 
-        if messages_channel:
-            embed = discord.Embed(
-                title=f"💌 Sevgili {message_entry['recipient']},",
-                description=message_entry["content"],
-                color=discord.Color.pink(),
-            )
-            embed.set_footer(text="Gönderilmemiş Mesajlar 💕")
-            await messages_channel.send(embed=embed)
-            channel_status = f"✅ {messages_channel.mention} kanalına gönderildi"
+        sent_count = 0
+        failed_count = 0
+
+        for guild_id, server_config in servers.items():
+            messages_channel_id = server_config.get("messages_channel_id")
+            if messages_channel_id:
+                messages_channel = bot.get_channel(messages_channel_id)
+                if messages_channel:
+                    try:
+                        await messages_channel.send(embed=embed)
+                        sent_count += 1
+                    except Exception:
+                        failed_count += 1
+                else:
+                    failed_count += 1
+
+        if sent_count > 0:
+            channel_status = f"✅ {sent_count} sunucuya gönderildi"
         else:
-            channel_status = "⚠️ Hedef kanal bulunamadı"
+            channel_status = "⚠️ Hiçbir sunucuya gönderilemedi"
+
+        if failed_count > 0:
+            channel_status += f" (❌ {failed_count} başarısız)"
 
         # Update the approval message
         embed = interaction.message.embeds[0]
@@ -375,7 +390,8 @@ async def mesaj(interaction: discord.Interaction):
 @app_commands.describe(isim="Aramak istediğin isim")
 async def isim(interaction: discord.Interaction, isim: str):
     """Search for messages by recipient name."""
-    approved_messages = get_server_approved_messages(interaction.guild_id)
+    data = load_messages()
+    approved_messages = data["approved"]
 
     # Search in approved messages (case-insensitive)
     matching_messages = [
@@ -414,7 +430,8 @@ async def isim(interaction: discord.Interaction, isim: str):
 @bot.tree.command(name="isimler", description="Mesaj gönderilen tüm isimleri listele")
 async def isimler(interaction: discord.Interaction):
     """List all recipient names with approved messages."""
-    approved_messages = get_server_approved_messages(interaction.guild_id)
+    data = load_messages()
+    approved_messages = data["approved"]
 
     # Get unique names
     names = set(msg["recipient"] for msg in approved_messages)
