@@ -1,104 +1,143 @@
-# Gonderilmemis Mesajlar Discord Bot
+# Gönderilmemiş Mesajlar Discord Bot
 
-Discord uzerinde calisan bir "Unsent Project" benzeri bot. Kullanicilar anonim mesajlar gonderebilir, ekip onayladiktan sonra mesajlar gorunur olur.
+Discord üzerinde çalışan bir "Unsent Project" benzeri bot. Kullanıcılar anonim mesajlar gönderebilir, ekip onayladıktan sonra mesajlar görünür olur.
 
-## Ozellikler
+**Çoklu sunucu desteği:** Bot birden fazla Discord sunucusunda çalışabilir. Her sunucu kendi kanallarına ve mesajlarına sahip olur.
 
-- `/mesaj` - Anonim mesaj gondermek icin form acar
-- `/isim <isim>` - Belirtilen isme gonderilen onaylanmis mesajlari gosterir
-- `/isimler` - Mesaj gonderilen tum isimleri listeler
-- `/istatistik` - Mesaj istatistiklerini gosterir (yalnizca yoneticiler)
+## Özellikler
 
-## Kurulum
+| Komut | Açıklama |
+|-------|----------|
+| `!kanal` | Sistemi otomatik kur (kanallar + roller) |
+| `!yardim` | Yardım mesajını göster |
+| `/mesaj` | Anonim mesaj gönder |
+| `/isim <isim>` | İsme göre mesaj ara |
+| `/isimler` | Tüm isimleri listele |
+| `/istatistik` | İstatistikleri göster |
 
-### 1. Discord Bot Olusturma
+## Hızlı Kurulum (Windows)
 
-1. [Discord Developer Portal](https://discord.com/developers/applications)'a gidin
-2. "New Application" butonuna tiklayin
-3. Bot'a bir isim verin ve olusturun
-4. Sol menuden "Bot" sekmesine gidin
-5. "Reset Token" butonuna tiklayip tokeni kopyalayin
-6. "MESSAGE CONTENT INTENT" secenegini aktif edin
+### Adım 1: Python Kur
 
-### 2. Bot'u Sunucuya Ekleme
+1. https://www.python.org/downloads/ adresine git
+2. "Download Python" butonuna tıkla
+3. İndirilen dosyayı çalıştır
+4. **ÖNEMLİ:** "Add Python to PATH" kutusunu işaretle ✅
+5. "Install Now" tıkla
 
-1. Sol menuden "OAuth2" > "URL Generator" sekmesine gidin
-2. Scopes: `bot`, `applications.commands`
-3. Bot Permissions:
-   - Send Messages
-   - Embed Links
-   - Use Slash Commands
-   - Mention Everyone (rol etiketlemek icin)
-4. Olusturulan URL ile botu sunucunuza ekleyin
+### Adım 2: Discord Bot Oluştur
 
-### 3. Sunucu Ayarlari
+1. https://discord.com/developers/applications adresine git
+2. Sağ üstte "New Application" tıkla
+3. İsim ver → Create
+4. Sol menüden "Bot" sekmesine git
+5. "Reset Token" tıkla → Tokeni kopyala ve sakla
+6. Aşağı kaydır:
+   - "MESSAGE CONTENT INTENT" → AÇ
+   - "SERVER MEMBERS INTENT" → AÇ
+7. "Save Changes" tıkla
 
-1. Discord'da Kullanici Ayarlari > Gelismis > Gelistirici Modu'nu acin
-2. Onay kanali olusturun (sadece ekibin gorecegi)
-3. Onaylanan mesajlar kanali olusturun (herkesin gorecegi)
-4. Ekip rolu olusturun veya mevcut rolu kullanin
-5. Kanal ve rol ID'lerini kopyalayin (sag tik > ID'yi Kopyala)
+### Adım 3: Bot'u Sunuculara Ekle
 
-### 4. Bot Yapilandirmasi
+1. Sol menüden "OAuth2" → "URL Generator" git
+2. SCOPES bölümünden seç:
+   - ✅ `bot`
+   - ✅ `applications.commands`
+3. BOT PERMISSIONS bölümünden seç:
+   - ✅ `Administrator` (en kolay yol)
 
-```bash
-# Repoyu klonlayin
-git clone <repo-url>
-cd Gonderilmemis-Mesajlar
+   Ya da tek tek:
+   - ✅ Send Messages
+   - ✅ Embed Links
+   - ✅ Manage Channels
+   - ✅ Manage Roles
+   - ✅ Mention Everyone
 
-# Sanal ortam olusturun
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+4. En alttaki URL'yi kopyala
+5. Bu URL ile istediğin kadar sunucuya ekle
 
-# Gereksinimleri yukleyin
+### Adım 4: Bot'u Çalıştır
+
+1. Bot klasörüne git: `C:\Users\gurka\Desktop\Gonderilmemis-Mesajlar-claude-discord-unsent-messages-bot-lDlmR`
+
+2. `.env.example` dosyasını kopyala ve adını `.env` yap
+
+3. `.env` dosyasını Not Defteri ile aç:
+```
+DISCORD_TOKEN=buraya_tokenini_yapistir
+```
+
+4. Klasörde adres çubuğuna `cmd` yaz, Enter'a bas
+
+5. Şu komutları çalıştır:
+```cmd
 pip install -r requirements.txt
-
-# .env dosyasini olusturun
-cp .env.example .env
-```
-
-`.env` dosyasini duzenleyin:
-
-```env
-DISCORD_TOKEN=your_bot_token_here
-APPROVAL_CHANNEL_ID=123456789012345678
-APPROVED_CHANNEL_ID=123456789012345678
-TEAM_ROLE_ID=123456789012345678
-```
-
-### 5. Bot'u Calistirma
-
-```bash
 python bot.py
 ```
 
-## Kullanim
+6. "Bot is now running!" görünce hazır!
 
-### Mesaj Gonderme
-1. Herhangi bir kanalda `/mesaj` yazin
-2. Acilan formda alicinin adini ve mesajinizi yazin
-3. Mesaj ekip onayina gonderilir
+### Adım 5: Sunucuda Kur
 
-### Mesaj Onaylama (Ekip)
-1. Onay kanalinda yeni mesaj bildirimi alin
-2. Yesil "Onayla" veya kirmizi "Reddet" butonuna tiklayin
-3. Onaylanan mesajlar otomatik olarak onaylanan mesajlar kanalina gonderilir
+1. Bot'un ekli olduğu herhangi bir Discord sunucusuna git
+2. Herhangi bir kanalda `!kanal` yaz
+3. Bot otomatik olarak şunları oluşturur:
+   - 📁 "Gönderilmemiş Mesajlar" kategorisi
+   - 🔒 #onay-bekleyenler kanalı (sadece ekip görür)
+   - 💌 #gönderilmemiş-mesajlar kanalı (herkes görür)
+   - 👥 "Mesaj Ekibi" rolü
 
-### Mesaj Arama
-1. `/isim Ahmet` yazarak "Ahmet" ismine gonderilen mesajlari gorun
-2. `/isimler` yazarak tum isimleri listeleyin
+4. Mesajları onaylayacak kişilere "Mesaj Ekibi" rolünü ver
 
-## Dosya Yapisi
+## Nasıl Çalışır?
 
 ```
-Gonderilmemis-Mesajlar/
-├── bot.py              # Ana bot kodu
-├── requirements.txt    # Python gereksinimleri
-├── .env.example        # Ornek yapilandirma
-├── .env                # Gercek yapilandirma (git'e eklenmez)
-├── messages.json       # Mesaj veritabani (git'e eklenmez)
-└── README.md           # Bu dosya
+Kullanıcı                    Ekip                      Herkes
+   │                          │                          │
+   │ /mesaj                   │                          │
+   │ "Ahmet'e: Seni özledim"  │                          │
+   ▼                          │                          │
+   ──────────────────────────►│                          │
+                              │ #onay-bekleyenler        │
+                              │ [Onayla] [Reddet]        │
+                              │                          │
+                              │ ✅ Onayla                │
+                              ▼                          │
+                              ──────────────────────────►│
+                                                         │ #gönderilmemiş-mesajlar
+                                                         │ 💌 Sevgili Ahmet,
+                                                         │ Seni özledim
 ```
+
+## Dosya Yapısı
+
+```
+📁 Gonderilmemis-Mesajlar/
+├── 📄 bot.py              # Ana bot kodu
+├── 📄 requirements.txt    # Python gereksinimleri
+├── 📄 .env.example        # Örnek ayar dosyası
+├── 📄 .env                # Gerçek ayarlar (git'e eklenmez)
+├── 📄 servers.json        # Sunucu ayarları (otomatik oluşur)
+├── 📄 messages.json       # Mesajlar (otomatik oluşur)
+└── 📄 README.md           # Bu dosya
+```
+
+## Sorun Giderme
+
+**"python bulunamadı" hatası:**
+- Python'u yeniden kur, "Add to PATH" işaretli olsun
+
+**Bot çalışıyor ama komutlar görünmüyor:**
+- 1-2 dakika bekle, slash komutları yükleniyor
+- Discord'u kapat aç
+
+**"Bot'un yeterli yetkisi yok" hatası:**
+- Bot'u sunucuya eklerken "Administrator" yetkisini ver
+- Ya da "Manage Channels" ve "Manage Roles" yetkilerini ver
+
+**Butonlar çalışmıyor:**
+- Bot'u yeniden başlat
+- Bot çevrimdışıyken butonlar çalışmaz
 
 ## Lisans
 

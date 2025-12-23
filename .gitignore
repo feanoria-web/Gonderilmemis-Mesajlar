@@ -1,8 +1,9 @@
 # Environment variables
 .env
 
-# Message data
+# Data files
 messages.json
+servers.json
 
 # Python
 __pycache__/
