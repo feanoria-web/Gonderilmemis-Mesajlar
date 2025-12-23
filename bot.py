@@ -10,6 +10,8 @@ load_dotenv()
 
 # Configuration
 TOKEN = os.getenv("DISCORD_TOKEN")
+APPROVAL_CHANNEL_ID = int(os.getenv("APPROVAL_CHANNEL_ID", "0"))  # Merkez onay kanalı
+TEAM_ROLE_ID = int(os.getenv("TEAM_ROLE_ID", "0"))  # Merkez ekip rolü
 
 # Data file paths
 SERVERS_FILE = "servers.json"
@@ -37,7 +39,7 @@ def load_messages():
     if os.path.exists(MESSAGES_FILE):
         with open(MESSAGES_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
-    return {}
+    return {"pending": [], "approved": [], "rejected": []}
 
 
 def save_messages(data):
@@ -46,21 +48,10 @@ def save_messages(data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
-def get_server_messages(guild_id: int):
-    """Get messages for a specific server."""
+def get_server_approved_messages(guild_id: int):
+    """Get approved messages for a specific server."""
     data = load_messages()
-    guild_key = str(guild_id)
-    if guild_key not in data:
-        data[guild_key] = {"pending": [], "approved": [], "rejected": []}
-        save_messages(data)
-    return data[guild_key]
-
-
-def save_server_messages(guild_id: int, server_data):
-    """Save messages for a specific server."""
-    data = load_messages()
-    data[str(guild_id)] = server_data
-    save_messages(data)
+    return [msg for msg in data["approved"] if msg.get("guild_id") == guild_id]
 
 
 # ============== Bot Setup ==============
@@ -79,7 +70,9 @@ class UnsentBot(commands.Bot):
 
     async def on_ready(self):
         print(f"{self.user} is now running!")
-        print(f"Bot is in {len(self.guilds)} servers")
+        print(f"Approval Channel ID: {APPROVAL_CHANNEL_ID}")
+        print(f"Team Role ID: {TEAM_ROLE_ID}")
+        print(f"Bot is in {len(self.guilds)} servers:")
         for guild in self.guilds:
             print(f"  - {guild.name} ({guild.id})")
 
@@ -91,144 +84,53 @@ bot = UnsentBot()
 
 @bot.command(name="kanal")
 @commands.has_permissions(administrator=True)
-async def setup_channels(ctx):
-    """Set up channels for the unsent messages system."""
+async def setup_channel(ctx, channel: discord.TextChannel = None):
+    """Set the channel where approved messages will be displayed."""
     guild = ctx.guild
 
-    await ctx.send("🔧 Kanallar ve roller oluşturuluyor...")
+    # If no channel specified, use current channel
+    if channel is None:
+        channel = ctx.channel
 
-    try:
-        # Create the team role
-        team_role = discord.utils.get(guild.roles, name="Mesaj Ekibi")
-        if not team_role:
-            team_role = await guild.create_role(
-                name="Mesaj Ekibi",
-                color=discord.Color.purple(),
-                reason="Gönderilmemiş Mesajlar bot kurulumu"
-            )
-            await ctx.send(f"✅ '{team_role.name}' rolü oluşturuldu!")
-        else:
-            await ctx.send(f"ℹ️ '{team_role.name}' rolü zaten var.")
+    # Save server configuration
+    servers = load_servers()
+    servers[str(guild.id)] = {
+        "guild_name": guild.name,
+        "messages_channel_id": channel.id,
+        "setup_at": datetime.now().isoformat(),
+        "setup_by": ctx.author.id
+    }
+    save_servers(servers)
 
-        # Create category
-        category = discord.utils.get(guild.categories, name="Gönderilmemiş Mesajlar")
-        if not category:
-            category = await guild.create_category(
-                name="Gönderilmemiş Mesajlar",
-                reason="Gönderilmemiş Mesajlar bot kurulumu"
-            )
-            await ctx.send(f"✅ '{category.name}' kategorisi oluşturuldu!")
-        else:
-            await ctx.send(f"ℹ️ '{category.name}' kategorisi zaten var.")
+    embed = discord.Embed(
+        title="✅ Kanal Ayarlandı!",
+        color=discord.Color.green()
+    )
+    embed.add_field(
+        name="💌 Mesaj Kanalı",
+        value=f"{channel.mention}\n\nOnaylanan mesajlar bu kanalda görünecek.",
+        inline=False
+    )
+    embed.add_field(
+        name="📋 Komutlar",
+        value=(
+            "`/mesaj` - Anonim mesaj gönder\n"
+            "`/isim <isim>` - İsme göre mesaj ara\n"
+            "`/isimler` - Tüm isimleri listele"
+        ),
+        inline=False
+    )
+    embed.set_footer(text=f"Ayarlayan: {ctx.author.name}")
 
-        # Create approval channel (only team and admins can see)
-        approval_channel = discord.utils.get(guild.text_channels, name="onay-bekleyenler")
-        if not approval_channel:
-            overwrites = {
-                guild.default_role: discord.PermissionOverwrite(read_messages=False),
-                team_role: discord.PermissionOverwrite(
-                    read_messages=True,
-                    send_messages=True,
-                    read_message_history=True
-                ),
-                guild.me: discord.PermissionOverwrite(
-                    read_messages=True,
-                    send_messages=True,
-                    embed_links=True
-                )
-            }
-            approval_channel = await guild.create_text_channel(
-                name="onay-bekleyenler",
-                category=category,
-                overwrites=overwrites,
-                topic="Mesajlar burada onaylanır veya reddedilir. Sadece ekip görebilir.",
-                reason="Gönderilmemiş Mesajlar bot kurulumu"
-            )
-            await ctx.send(f"✅ #{approval_channel.name} kanalı oluşturuldu! (Sadece ekip görebilir)")
-        else:
-            await ctx.send(f"ℹ️ #{approval_channel.name} kanalı zaten var.")
-
-        # Create public messages channel
-        messages_channel = discord.utils.get(guild.text_channels, name="gönderilmemiş-mesajlar")
-        if not messages_channel:
-            overwrites = {
-                guild.default_role: discord.PermissionOverwrite(
-                    read_messages=True,
-                    send_messages=False,
-                    read_message_history=True
-                ),
-                guild.me: discord.PermissionOverwrite(
-                    read_messages=True,
-                    send_messages=True,
-                    embed_links=True
-                )
-            }
-            messages_channel = await guild.create_text_channel(
-                name="gönderilmemiş-mesajlar",
-                category=category,
-                overwrites=overwrites,
-                topic="Onaylanmış gönderilmemiş mesajlar burada paylaşılır. /mesaj yazarak mesaj gönderebilirsin!",
-                reason="Gönderilmemiş Mesajlar bot kurulumu"
-            )
-            await ctx.send(f"✅ #{messages_channel.name} kanalı oluşturuldu! (Herkes görebilir)")
-        else:
-            await ctx.send(f"ℹ️ #{messages_channel.name} kanalı zaten var.")
-
-        # Save server configuration
-        servers = load_servers()
-        servers[str(guild.id)] = {
-            "guild_name": guild.name,
-            "approval_channel_id": approval_channel.id,
-            "messages_channel_id": messages_channel.id,
-            "team_role_id": team_role.id,
-            "setup_at": datetime.now().isoformat(),
-            "setup_by": ctx.author.id
-        }
-        save_servers(servers)
-
-        # Send success message
-        embed = discord.Embed(
-            title="✅ Kurulum Tamamlandı!",
-            color=discord.Color.green()
-        )
-        embed.add_field(
-            name="Oluşturulan Kanallar",
-            value=f"📁 Kategori: **{category.name}**\n"
-                  f"🔒 Onay Kanalı: {approval_channel.mention}\n"
-                  f"💌 Mesaj Kanalı: {messages_channel.mention}",
-            inline=False
-        )
-        embed.add_field(
-            name="Oluşturulan Rol",
-            value=f"👥 Ekip Rolü: {team_role.mention}\n\n"
-                  f"Bu rolü mesajları onaylayacak kişilere verin!",
-            inline=False
-        )
-        embed.add_field(
-            name="Nasıl Kullanılır?",
-            value="• Üyeler `/mesaj` yazarak anonim mesaj gönderebilir\n"
-                  "• Mesajlar onay kanalına düşer\n"
-                  "• Ekip onaylarsa mesaj kanalında yayınlanır\n"
-                  "• `/isim Ahmet` ile mesaj aranabilir",
-            inline=False
-        )
-        await ctx.send(embed=embed)
-
-        # Give the command user the team role
-        if team_role not in ctx.author.roles:
-            await ctx.author.add_roles(team_role)
-            await ctx.send(f"ℹ️ {ctx.author.mention}, sana **{team_role.name}** rolü verildi!")
-
-    except discord.Forbidden:
-        await ctx.send("❌ Hata: Bot'un yeterli yetkisi yok! Bot'a 'Rolleri Yönet' ve 'Kanalları Yönet' izinlerini verin.")
-    except Exception as e:
-        await ctx.send(f"❌ Bir hata oluştu: {str(e)}")
+    await ctx.send(embed=embed)
 
 
-@setup_channels.error
-async def setup_channels_error(ctx, error):
+@setup_channel.error
+async def setup_channel_error(ctx, error):
     if isinstance(error, commands.MissingPermissions):
         await ctx.send("❌ Bu komutu kullanmak için **Yönetici** yetkisine sahip olmalısın!")
+    elif isinstance(error, commands.ChannelNotFound):
+        await ctx.send("❌ Kanal bulunamadı! Doğru kanal adını yazdığından emin ol.")
 
 
 # ============== Message Modal ==============
@@ -251,17 +153,17 @@ class MessageModal(discord.ui.Modal, title="Gönderilmemiş Mesaj"):
 
     async def on_submit(self, interaction: discord.Interaction):
         guild_id = interaction.guild_id
+        guild_name = interaction.guild.name
         servers = load_servers()
 
         # Check if server is set up
         if str(guild_id) not in servers:
             await interaction.response.send_message(
-                "❌ Bu sunucuda sistem kurulmamış! Bir yönetici `!kanal` yazmalı.",
+                "❌ Bu sunucuda mesaj kanalı ayarlanmamış!\n"
+                "Bir yönetici `!kanal #kanal-adı` yazmalı.",
                 ephemeral=True
             )
             return
-
-        server_config = servers[str(guild_id)]
 
         # Create message entry
         message_id = f"{guild_id}_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
@@ -271,25 +173,31 @@ class MessageModal(discord.ui.Modal, title="Gönderilmemiş Mesaj"):
             "content": self.message_content.value.strip(),
             "submitted_at": datetime.now().isoformat(),
             "submitted_by": interaction.user.id,
-            "guild_id": guild_id
+            "guild_id": guild_id,
+            "guild_name": guild_name
         }
 
         # Save to pending
-        server_messages = get_server_messages(guild_id)
-        server_messages["pending"].append(message_entry)
-        save_server_messages(guild_id, server_messages)
+        data = load_messages()
+        data["pending"].append(message_entry)
+        save_messages(data)
 
-        # Send to approval channel
-        approval_channel = bot.get_channel(server_config["approval_channel_id"])
+        # Send to central approval channel
+        approval_channel = bot.get_channel(APPROVAL_CHANNEL_ID)
         if approval_channel:
             embed = discord.Embed(
                 title="📬 Yeni Mesaj Onay Bekliyor",
                 color=discord.Color.yellow(),
             )
             embed.add_field(
+                name="🏠 Sunucu",
+                value=guild_name,
+                inline=True,
+            )
+            embed.add_field(
                 name="💌 Kime",
                 value=self.recipient_name.value,
-                inline=False,
+                inline=True,
             )
             embed.add_field(
                 name="📝 Mesaj",
@@ -302,14 +210,20 @@ class MessageModal(discord.ui.Modal, title="Gönderilmemiş Mesaj"):
             view = ApprovalView(message_id, guild_id)
 
             # Tag the team role
-            team_role_id = server_config.get("team_role_id")
-            team_mention = f"<@&{team_role_id}>" if team_role_id else ""
+            team_mention = f"<@&{TEAM_ROLE_ID}>" if TEAM_ROLE_ID else ""
 
             await approval_channel.send(
                 content=f"{team_mention} Yeni bir mesaj onay bekliyor!",
                 embed=embed,
                 view=view,
             )
+        else:
+            await interaction.response.send_message(
+                "⚠️ Mesajın kaydedildi ama onay kanalına gönderilemedi. "
+                "Bot yöneticisine haber ver.",
+                ephemeral=True
+            )
+            return
 
         await interaction.response.send_message(
             "✅ Mesajın gönderildi! Ekip onayladıktan sonra görünür olacak.",
@@ -331,12 +245,12 @@ class ApprovalView(discord.ui.View):
         emoji="✅",
     )
     async def approve(self, interaction: discord.Interaction, button: discord.ui.Button):
-        server_messages = get_server_messages(self.guild_id)
+        data = load_messages()
         servers = load_servers()
 
         # Find the message in pending
         message_entry = None
-        for msg in server_messages["pending"]:
+        for msg in data["pending"]:
             if msg["id"] == self.message_id:
                 message_entry = msg
                 break
@@ -349,15 +263,16 @@ class ApprovalView(discord.ui.View):
             return
 
         # Move to approved
-        server_messages["pending"].remove(message_entry)
+        data["pending"].remove(message_entry)
         message_entry["approved_at"] = datetime.now().isoformat()
         message_entry["approved_by"] = interaction.user.id
-        server_messages["approved"].append(message_entry)
-        save_server_messages(self.guild_id, server_messages)
+        data["approved"].append(message_entry)
+        save_messages(data)
 
-        # Post to approved channel
+        # Post to the server's messages channel
         server_config = servers.get(str(self.guild_id), {})
-        messages_channel = bot.get_channel(server_config.get("messages_channel_id"))
+        messages_channel_id = server_config.get("messages_channel_id")
+        messages_channel = bot.get_channel(messages_channel_id) if messages_channel_id else None
 
         if messages_channel:
             embed = discord.Embed(
@@ -367,6 +282,9 @@ class ApprovalView(discord.ui.View):
             )
             embed.set_footer(text="Gönderilmemiş Mesajlar 💕")
             await messages_channel.send(embed=embed)
+            channel_status = f"✅ {messages_channel.mention} kanalına gönderildi"
+        else:
+            channel_status = "⚠️ Hedef kanal bulunamadı"
 
         # Update the approval message
         embed = interaction.message.embeds[0]
@@ -375,7 +293,12 @@ class ApprovalView(discord.ui.View):
         embed.add_field(
             name="👤 Onaylayan",
             value=interaction.user.mention,
-            inline=False,
+            inline=True,
+        )
+        embed.add_field(
+            name="📤 Durum",
+            value=channel_status,
+            inline=True,
         )
 
         # Disable buttons
@@ -390,11 +313,11 @@ class ApprovalView(discord.ui.View):
         emoji="❌",
     )
     async def reject(self, interaction: discord.Interaction, button: discord.ui.Button):
-        server_messages = get_server_messages(self.guild_id)
+        data = load_messages()
 
         # Find the message in pending
         message_entry = None
-        for msg in server_messages["pending"]:
+        for msg in data["pending"]:
             if msg["id"] == self.message_id:
                 message_entry = msg
                 break
@@ -407,11 +330,11 @@ class ApprovalView(discord.ui.View):
             return
 
         # Move to rejected
-        server_messages["pending"].remove(message_entry)
+        data["pending"].remove(message_entry)
         message_entry["rejected_at"] = datetime.now().isoformat()
         message_entry["rejected_by"] = interaction.user.id
-        server_messages["rejected"].append(message_entry)
-        save_server_messages(self.guild_id, server_messages)
+        data["rejected"].append(message_entry)
+        save_messages(data)
 
         # Update the approval message
         embed = interaction.message.embeds[0]
@@ -439,7 +362,8 @@ async def mesaj(interaction: discord.Interaction):
 
     if str(interaction.guild_id) not in servers:
         await interaction.response.send_message(
-            "❌ Bu sunucuda sistem kurulmamış! Bir yönetici `!kanal` yazmalı.",
+            "❌ Bu sunucuda mesaj kanalı ayarlanmamış!\n"
+            "Bir yönetici `!kanal #kanal-adı` yazmalı.",
             ephemeral=True
         )
         return
@@ -451,12 +375,11 @@ async def mesaj(interaction: discord.Interaction):
 @app_commands.describe(isim="Aramak istediğin isim")
 async def isim(interaction: discord.Interaction, isim: str):
     """Search for messages by recipient name."""
-    server_messages = get_server_messages(interaction.guild_id)
+    approved_messages = get_server_approved_messages(interaction.guild_id)
 
     # Search in approved messages (case-insensitive)
     matching_messages = [
-        msg
-        for msg in server_messages["approved"]
+        msg for msg in approved_messages
         if isim.lower() in msg["recipient"].lower()
     ]
 
@@ -491,10 +414,10 @@ async def isim(interaction: discord.Interaction, isim: str):
 @bot.tree.command(name="isimler", description="Mesaj gönderilen tüm isimleri listele")
 async def isimler(interaction: discord.Interaction):
     """List all recipient names with approved messages."""
-    server_messages = get_server_messages(interaction.guild_id)
+    approved_messages = get_server_approved_messages(interaction.guild_id)
 
     # Get unique names
-    names = set(msg["recipient"] for msg in server_messages["approved"])
+    names = set(msg["recipient"] for msg in approved_messages)
 
     if not names:
         await interaction.response.send_message(
@@ -528,25 +451,29 @@ async def isimler(interaction: discord.Interaction):
 @app_commands.default_permissions(administrator=True)
 async def istatistik(interaction: discord.Interaction):
     """Show message statistics (admin only)."""
-    server_messages = get_server_messages(interaction.guild_id)
+    data = load_messages()
+
+    # Global stats
+    total_pending = len(data["pending"])
+    total_approved = len(data["approved"])
+    total_rejected = len(data["rejected"])
+
+    # Server-specific stats
+    server_approved = len(get_server_approved_messages(interaction.guild_id))
+    server_pending = len([m for m in data["pending"] if m.get("guild_id") == interaction.guild_id])
 
     embed = discord.Embed(
         title="📊 Mesaj İstatistikleri",
         color=discord.Color.blue(),
     )
     embed.add_field(
-        name="⏳ Bekleyen",
-        value=str(len(server_messages["pending"])),
+        name="🏠 Bu Sunucu",
+        value=f"⏳ Bekleyen: {server_pending}\n✅ Onaylanan: {server_approved}",
         inline=True,
     )
     embed.add_field(
-        name="✅ Onaylanan",
-        value=str(len(server_messages["approved"])),
-        inline=True,
-    )
-    embed.add_field(
-        name="❌ Reddedilen",
-        value=str(len(server_messages["rejected"])),
+        name="🌍 Toplam (Tüm Sunucular)",
+        value=f"⏳ Bekleyen: {total_pending}\n✅ Onaylanan: {total_approved}\n❌ Reddedilen: {total_rejected}",
         inline=True,
     )
 
@@ -564,10 +491,13 @@ async def yardim(ctx):
         color=discord.Color.pink()
     )
     embed.add_field(
-        name="📋 Komutlar",
+        name="👑 Yönetici Komutları",
+        value="`!kanal #kanal` - Mesajların görüneceği kanalı ayarla",
+        inline=False
+    )
+    embed.add_field(
+        name="👤 Kullanıcı Komutları",
         value=(
-            "`!kanal` - Sistemi kur (sadece yöneticiler)\n"
-            "`!yardim` - Bu mesajı göster\n"
             "`/mesaj` - Anonim mesaj gönder\n"
             "`/isim <isim>` - İsme göre mesaj ara\n"
             "`/isimler` - Tüm isimleri listele\n"
@@ -578,10 +508,10 @@ async def yardim(ctx):
     embed.add_field(
         name="❓ Nasıl Çalışır?",
         value=(
-            "1. Yönetici `!kanal` yazarak sistemi kurar\n"
+            "1. Yönetici `!kanal #kanal` ile mesaj kanalını ayarlar\n"
             "2. Üyeler `/mesaj` ile anonim mesaj gönderir\n"
-            "3. Ekip mesajları onaylar veya reddeder\n"
-            "4. Onaylanan mesajlar herkese açık kanalda paylaşılır"
+            "3. Merkez ekip mesajları onaylar veya reddeder\n"
+            "4. Onaylanan mesajlar ayarlanan kanalda görünür"
         ),
         inline=False
     )
@@ -594,7 +524,14 @@ if __name__ == "__main__":
     if not TOKEN:
         print("=" * 50)
         print("HATA: DISCORD_TOKEN bulunamadi!")
-        print("Lutfen .env dosyasi olusturun ve bot tokeninizi ekleyin.")
+        print("Lutfen .env dosyasini kontrol edin.")
+        print("=" * 50)
+        exit(1)
+
+    if not APPROVAL_CHANNEL_ID:
+        print("=" * 50)
+        print("HATA: APPROVAL_CHANNEL_ID bulunamadi!")
+        print("Merkez onay kanalinin ID'sini .env dosyasina ekleyin.")
         print("=" * 50)
         exit(1)
 

@@ -1,113 +1,139 @@
 # Gönderilmemiş Mesajlar Discord Bot
 
-Discord üzerinde çalışan bir "Unsent Project" benzeri bot. Kullanıcılar anonim mesajlar gönderebilir, ekip onayladıktan sonra mesajlar görünür olur.
+Discord üzerinde çalışan bir "Unsent Project" benzeri bot.
 
-**Çoklu sunucu desteği:** Bot birden fazla Discord sunucusunda çalışabilir. Her sunucu kendi kanallarına ve mesajlarına sahip olur.
+## Nasıl Çalışır?
 
-## Özellikler
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         MERKEZ SUNUCU                           │
+│                    (Senin kontrol sunucun)                      │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │  #onay-bekleyenler                                       │   │
+│  │  ┌─────────────────────────────────────────────────┐    │   │
+│  │  │ 📬 Yeni Mesaj Onay Bekliyor                     │    │   │
+│  │  │ 🏠 Sunucu: Arkadaş Grubu                        │    │   │
+│  │  │ 💌 Kime: Ahmet                                  │    │   │
+│  │  │ 📝 Mesaj: Seni çok özledim...                   │    │   │
+│  │  │                                                  │    │   │
+│  │  │ [✅ Onayla]  [❌ Reddet]                         │    │   │
+│  │  └─────────────────────────────────────────────────┘    │   │
+│  └─────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              │ Onaylandığında
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      DİĞER SUNUCULAR                            │
+│                                                                 │
+│  ┌──────────────────────┐    ┌──────────────────────┐          │
+│  │   Arkadaş Grubu      │    │   Okul Sunucusu      │          │
+│  │   #mesajlar          │    │   #itiraflar         │          │
+│  │                      │    │                      │          │
+│  │  💌 Sevgili Ahmet,   │    │  💌 Sevgili Ayşe,    │          │
+│  │  Seni çok özledim... │    │  Keşke konuşsaydık..│          │
+│  └──────────────────────┘    └──────────────────────┘          │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-| Komut | Açıklama |
-|-------|----------|
-| `!kanal` | Sistemi otomatik kur (kanallar + roller) |
-| `!yardim` | Yardım mesajını göster |
-| `/mesaj` | Anonim mesaj gönder |
-| `/isim <isim>` | İsme göre mesaj ara |
-| `/isimler` | Tüm isimleri listele |
-| `/istatistik` | İstatistikleri göster |
+**Özet:**
+- Tüm mesajlar **senin merkez sunucuna** düşer
+- **Senin ekibin** onaylar veya reddeder
+- Onaylanan mesajlar **ilgili sunucunun kanalında** görünür
 
-## Hızlı Kurulum (Windows)
+---
+
+## Kurulum
 
 ### Adım 1: Python Kur
 
-1. https://www.python.org/downloads/ adresine git
-2. "Download Python" butonuna tıkla
-3. İndirilen dosyayı çalıştır
-4. **ÖNEMLİ:** "Add Python to PATH" kutusunu işaretle ✅
-5. "Install Now" tıkla
+1. https://www.python.org/downloads/ → İndir ve kur
+2. **"Add Python to PATH"** kutusunu işaretle!
 
 ### Adım 2: Discord Bot Oluştur
 
-1. https://discord.com/developers/applications adresine git
-2. Sağ üstte "New Application" tıkla
-3. İsim ver → Create
-4. Sol menüden "Bot" sekmesine git
-5. "Reset Token" tıkla → Tokeni kopyala ve sakla
-6. Aşağı kaydır:
-   - "MESSAGE CONTENT INTENT" → AÇ
-   - "SERVER MEMBERS INTENT" → AÇ
-7. "Save Changes" tıkla
+1. https://discord.com/developers/applications → "New Application"
+2. Sol menü → **Bot** → "Reset Token" → Kopyala
+3. Aşağı kaydır:
+   - **MESSAGE CONTENT INTENT** → AÇ
+   - **SERVER MEMBERS INTENT** → AÇ
+4. "Save Changes"
 
 ### Adım 3: Bot'u Sunuculara Ekle
 
-1. Sol menüden "OAuth2" → "URL Generator" git
-2. SCOPES bölümünden seç:
-   - ✅ `bot`
-   - ✅ `applications.commands`
-3. BOT PERMISSIONS bölümünden seç:
-   - ✅ `Administrator` (en kolay yol)
+1. Sol menü → **OAuth2** → **URL Generator**
+2. SCOPES: `bot`, `applications.commands`
+3. BOT PERMISSIONS: `Administrator`
+4. URL'yi kopyala → Tarayıcıda aç → Sunucuları seç
 
-   Ya da tek tek:
-   - ✅ Send Messages
-   - ✅ Embed Links
-   - ✅ Manage Channels
-   - ✅ Manage Roles
-   - ✅ Mention Everyone
+### Adım 4: Merkez Sunucunu Ayarla
 
-4. En alttaki URL'yi kopyala
-5. Bu URL ile istediğin kadar sunucuya ekle
+1. **Geliştirici Modu'nu aç:** Discord Ayarları → Gelişmiş → Geliştirici Modu
+2. Merkez sunucunda bir **#onay-bekleyenler** kanalı oluştur
+3. Bu kanala sağ tıkla → **"Kanal Kimliğini Kopyala"**
+4. Bir **ekip rolü** oluştur (veya mevcut olanı kullan)
+5. Role sağ tıkla → **"Rol Kimliğini Kopyala"**
 
-### Adım 4: Bot'u Çalıştır
+### Adım 5: Bot Dosyalarını Ayarla
 
-1. Bot klasörüne git: `C:\Users\gurka\Desktop\Gonderilmemis-Mesajlar-claude-discord-unsent-messages-bot-lDlmR`
+1. `.env.example` dosyasını kopyala → adını `.env` yap
+2. `.env` dosyasını düzenle:
 
-2. `.env.example` dosyasını kopyala ve adını `.env` yap
-
-3. `.env` dosyasını Not Defteri ile aç:
-```
-DISCORD_TOKEN=buraya_tokenini_yapistir
+```env
+DISCORD_TOKEN=bot_tokenin_buraya
+APPROVAL_CHANNEL_ID=onay_kanali_id_buraya
+TEAM_ROLE_ID=ekip_rolu_id_buraya
 ```
 
-4. Klasörde adres çubuğuna `cmd` yaz, Enter'a bas
+### Adım 6: Bot'u Çalıştır
 
-5. Şu komutları çalıştır:
+Klasörde komut satırı aç:
+
 ```cmd
 pip install -r requirements.txt
 python bot.py
 ```
 
-6. "Bot is now running!" görünce hazır!
+---
 
-### Adım 5: Sunucuda Kur
+## Kullanım
 
-1. Bot'un ekli olduğu herhangi bir Discord sunucusuna git
-2. Herhangi bir kanalda `!kanal` yaz
-3. Bot otomatik olarak şunları oluşturur:
-   - 📁 "Gönderilmemiş Mesajlar" kategorisi
-   - 🔒 #onay-bekleyenler kanalı (sadece ekip görür)
-   - 💌 #gönderilmemiş-mesajlar kanalı (herkes görür)
-   - 👥 "Mesaj Ekibi" rolü
+### Merkez Sunucuda (Sen)
 
-4. Mesajları onaylayacak kişilere "Mesaj Ekibi" rolünü ver
+Mesajlar `#onay-bekleyenler` kanalına düşer:
+- **✅ Onayla** → Mesaj ilgili sunucuya gönderilir
+- **❌ Reddet** → Mesaj silinir
 
-## Nasıl Çalışır?
+### Diğer Sunucularda (Yöneticiler)
+
+Yönetici mesaj kanalını ayarlar:
+```
+!kanal #mesajlar
+```
+
+### Herkes
 
 ```
-Kullanıcı                    Ekip                      Herkes
-   │                          │                          │
-   │ /mesaj                   │                          │
-   │ "Ahmet'e: Seni özledim"  │                          │
-   ▼                          │                          │
-   ──────────────────────────►│                          │
-                              │ #onay-bekleyenler        │
-                              │ [Onayla] [Reddet]        │
-                              │                          │
-                              │ ✅ Onayla                │
-                              ▼                          │
-                              ──────────────────────────►│
-                                                         │ #gönderilmemiş-mesajlar
-                                                         │ 💌 Sevgili Ahmet,
-                                                         │ Seni özledim
+/mesaj          → Anonim mesaj gönderme formu açar
+/isim Ahmet     → "Ahmet"e gönderilen mesajları arar
+/isimler        → Tüm isimleri listeler
+/istatistik     → İstatistikleri gösterir
 ```
+
+---
+
+## Komutlar
+
+| Komut | Kim Kullanır | Ne Yapar |
+|-------|--------------|----------|
+| `!kanal #kanal` | Sunucu Yöneticisi | Mesaj kanalını ayarlar |
+| `!yardim` | Herkes | Yardım mesajı gösterir |
+| `/mesaj` | Herkes | Anonim mesaj gönderir |
+| `/isim <isim>` | Herkes | İsme göre mesaj arar |
+| `/isimler` | Herkes | Tüm isimleri listeler |
+| `/istatistik` | Yönetici | İstatistikleri gösterir |
+
+---
 
 ## Dosya Yapısı
 
@@ -122,22 +148,24 @@ Kullanıcı                    Ekip                      Herkes
 └── 📄 README.md           # Bu dosya
 ```
 
+---
+
 ## Sorun Giderme
 
-**"python bulunamadı" hatası:**
-- Python'u yeniden kur, "Add to PATH" işaretli olsun
+**Bot çalışmıyor:**
+- `.env` dosyasındaki değerleri kontrol et
+- Token doğru mu?
+- Kanal ve rol ID'leri doğru mu?
 
-**Bot çalışıyor ama komutlar görünmüyor:**
-- 1-2 dakika bekle, slash komutları yükleniyor
-- Discord'u kapat aç
+**Mesajlar onay kanalına düşmüyor:**
+- `APPROVAL_CHANNEL_ID` doğru mu?
+- Bot o kanalda mesaj gönderme yetkisine sahip mi?
 
-**"Bot'un yeterli yetkisi yok" hatası:**
-- Bot'u sunucuya eklerken "Administrator" yetkisini ver
-- Ya da "Manage Channels" ve "Manage Roles" yetkilerini ver
+**Onaylanan mesajlar görünmüyor:**
+- Hedef sunucuda `!kanal #kanal` çalıştırıldı mı?
+- Bot o kanalda mesaj gönderme yetkisine sahip mi?
 
-**Butonlar çalışmıyor:**
-- Bot'u yeniden başlat
-- Bot çevrimdışıyken butonlar çalışmaz
+---
 
 ## Lisans
 
